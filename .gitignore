@@ -1,0 +1,21 @@
+# Dependencies & build
+node_modules/
+dist/
+.vite/
+*.tsbuildinfo
+
+# Secrets — never commit
+.env
+.env.*
+!.env.example
+
+# Local / OS
+*.log
+.DS_Store
+Thumbs.db
+
+# Editor & deploy tooling
+.vercel/
+.idea/
+.vscode/*
+!.vscode/extensions.json

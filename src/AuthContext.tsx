@@ -7,6 +7,7 @@ import {
   type ReactNode,
 } from "react";
 import type { Session, User } from "@supabase/supabase-js";
+import { formatAuthError } from "./lib/authErrors";
 import { isCloudEnabled, supabase } from "./lib/supabase";
 
 interface AuthContextValue {
@@ -49,13 +50,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const signIn = useCallback(async (email: string, password: string) => {
     if (!supabase) throw new Error("Cloud sync is not configured");
     const { error } = await supabase.auth.signInWithPassword({ email, password });
-    if (error) throw error;
+    if (error) throw new Error(formatAuthError(error));
   }, []);
 
   const signUp = useCallback(async (email: string, password: string) => {
     if (!supabase) throw new Error("Cloud sync is not configured");
-    const { data, error } = await supabase.auth.signUp({ email, password });
-    if (error) throw error;
+    const { data, error } = await supabase.auth.signUp({
+      email,
+      password,
+      options: {
+        emailRedirectTo: window.location.origin,
+      },
+    });
+    if (error) throw new Error(formatAuthError(error));
     return { needsConfirmation: !data.session };
   }, []);
 

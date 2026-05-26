@@ -57,7 +57,7 @@ export default function SettingsPage() {
       }
       setPassword("");
     } catch (err) {
-      setAuthError(err instanceof Error ? err.message : "Something went wrong");
+      setAuthError(err instanceof Error ? err.message : "Something went wrong.");
     } finally {
       setAuthBusy(false);
     }
@@ -111,6 +111,30 @@ export default function SettingsPage() {
             Add Supabase keys to a <code>.env</code> file (see README), run the
             SQL schema, then rebuild. Until then, use manual export below.
           </p>
+        </section>
+      )}
+
+      {isConfigured && !user && (
+        <section className="settings-section setup-checklist">
+          <h2>First-time setup (Supabase)</h2>
+          <p>If sign-in fails, check these in your Supabase dashboard:</p>
+          <ol>
+            <li>
+              <strong>Authentication → URL configuration</strong>
+              <br />
+              Site URL: <code>{window.location.origin}</code>
+              <br />
+              Redirect URLs: add <code>{window.location.origin}</code>
+            </li>
+            <li>
+              <strong>Authentication → Providers → Email</strong> — turn off
+              &quot;Confirm email&quot; for instant sign-in (optional but easiest).
+            </li>
+            <li>
+              Use <strong>Create account</strong> on this site first, then sign
+              in on the other phone with the same email/password.
+            </li>
+          </ol>
         </section>
       )}
 

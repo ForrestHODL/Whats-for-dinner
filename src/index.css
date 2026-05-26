@@ -59,7 +59,7 @@ h2 {
 }
 
 .page {
-  padding: 20px 16px 24px;
+  padding: 20px 16px calc(32px + var(--nav-height) + var(--safe-bottom));
 }
 
 .page-header {
@@ -602,4 +602,23 @@ h2 {
 
 .manual-sync-toggle {
   margin-bottom: 8px;
+}
+
+.setup-checklist ol {
+  margin: 0;
+  padding-left: 1.2rem;
+  font-size: 0.9rem;
+  color: var(--text-muted);
+}
+
+.setup-checklist li {
+  margin-bottom: 12px;
+}
+
+.setup-checklist code {
+  font-size: 0.8rem;
+  word-break: break-all;
+  background: var(--surface-2);
+  padding: 2px 6px;
+  border-radius: 4px;
 }

@@ -7,7 +7,13 @@ const anonKey = import.meta.env.VITE_SUPABASE_ANON_KEY as string | undefined;
 export const isCloudEnabled = Boolean(url && anonKey);
 
 export const supabase: SupabaseClient | null = isCloudEnabled
-  ? createClient(url!, anonKey!)
+  ? createClient(url!, anonKey!, {
+      auth: {
+        persistSession: true,
+        autoRefreshToken: true,
+        detectSessionInUrl: true,
+      },
+    })
   : null;
 
 export type MealPlanRow = {

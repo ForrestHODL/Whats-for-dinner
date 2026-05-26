@@ -1,10 +1,11 @@
 import { useEffect, useState } from "react";
-import { Link, Navigate, useParams } from "react-router-dom";
+import { Link, Navigate, useNavigate, useParams } from "react-router-dom";
 import { useStore } from "../StoreContext";
 
 export default function RecipePage() {
+  const navigate = useNavigate();
   const { mealId } = useParams<{ mealId: string }>();
-  const { getMealById, updateMealRecipe } = useStore();
+  const { getMealById, updateMealRecipe, removeMeal } = useStore();
   const meal = mealId ? getMealById(mealId) : undefined;
 
   const [draft, setDraft] = useState("");
@@ -25,6 +26,15 @@ export default function RecipePage() {
   };
 
   const hasChanges = draft !== meal.recipe;
+
+  const handleDelete = () => {
+    const confirmed = window.confirm(
+      `Delete "${meal.title}"? This removes the meal and any days it was assigned to.`
+    );
+    if (!confirmed) return;
+    removeMeal(meal.id);
+    navigate("/meals", { replace: true });
+  };
 
   return (
     <div className="page recipe-page">
@@ -60,6 +70,18 @@ export default function RecipePage() {
           disabled={!hasChanges}
         >
           {hasChanges ? "Save recipe" : "Saved"}
+        </button>
+      </section>
+
+      <section className="recipe-danger-zone">
+        <h2>Delete meal</h2>
+        <p>Remove this meal from your library and the weekly calendar.</p>
+        <button
+          type="button"
+          className="btn-danger btn-full"
+          onClick={handleDelete}
+        >
+          Delete meal
         </button>
       </section>
     </div>

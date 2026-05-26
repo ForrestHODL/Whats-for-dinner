@@ -5,7 +5,7 @@ import DayPickerModal from "../components/DayPickerModal";
 import type { Meal } from "../types";
 
 export default function MealsPage() {
-  const { meals, addMeal, removeMeal, assignMealToDay } = useStore();
+  const { meals, addMeal, assignMealToDay } = useStore();
   const [selectedMeal, setSelectedMeal] = useState<Meal | null>(null);
   const [newTitle, setNewTitle] = useState("");
   const [showAdded, setShowAdded] = useState<string | null>(null);
@@ -70,14 +70,6 @@ export default function MealsPage() {
                 Recipe
               </Link>
             </div>
-            <button
-              type="button"
-              className="btn-delete"
-              onClick={() => removeMeal(meal.id)}
-              aria-label={`Delete ${meal.title}`}
-            >
-              🗑
-            </button>
           </li>
         ))}
       </ul>

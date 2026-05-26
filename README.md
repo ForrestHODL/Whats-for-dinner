@@ -1,6 +1,6 @@
-# Meal Prep Planner
+# What's for Dinner
 
-A mobile-friendly PWA for planning weekly meals. Tap a meal, pick a day, and sync the plan between phones with a shared account.
+A simple calendar and meal prep app to plan dinner (and the rest of the week). Meals have titles; tap a meal, pick a day, and sync the plan between phones with a shared account.
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 
@@ -14,8 +14,8 @@ A mobile-friendly PWA for planning weekly meals. Tap a meal, pick a day, and syn
 ## Quick start (local)
 
 ```bash
-git clone https://github.com/YOUR_USERNAME/meal-prep-planner.git
-cd meal-prep-planner
+git clone https://github.com/ForrestHODL/Whats-for-dinner.git
+cd Whats-for-dinner
 npm install
 cp .env.example .env
 # Edit .env with your Supabase URL and anon key
@@ -26,12 +26,11 @@ Open `http://localhost:5173`.
 
 ## Deploy (recommended: Vercel)
 
-1. Fork or clone this repo to your GitHub account (**public** is fine).
-2. [vercel.com](https://vercel.com) → **Add New Project** → import the repo.
-3. Add environment variables:
+1. [vercel.com](https://vercel.com) → **Add New Project** → import [ForrestHODL/Whats-for-dinner](https://github.com/ForrestHODL/Whats-for-dinner).
+2. Add environment variables:
    - `VITE_SUPABASE_URL`
    - `VITE_SUPABASE_ANON_KEY`
-4. Deploy. Open the URL on both phones → **Account** → shared login → **Add to Home Screen**.
+3. Deploy. Open the URL on both phones → **Account** → shared login → **Add to Home Screen**.
 
 In Supabase → **Authentication → URL configuration**, set **Site URL** and **Redirect URLs** to your Vercel URL.
 

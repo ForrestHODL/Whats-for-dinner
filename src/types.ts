@@ -10,6 +10,7 @@ export type DayOfWeek =
 export interface Meal {
   id: string;
   title: string;
+  recipe: string;
 }
 
 export interface DayAssignment {

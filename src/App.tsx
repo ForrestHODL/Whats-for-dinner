@@ -2,6 +2,7 @@ import { Routes, Route, NavLink } from "react-router-dom";
 import { StoreProvider } from "./StoreContext";
 import WeekPage from "./pages/WeekPage";
 import MealsPage from "./pages/MealsPage";
+import RecipePage from "./pages/RecipePage";
 import SettingsPage from "./pages/SettingsPage";
 
 export default function App() {
@@ -12,6 +13,7 @@ export default function App() {
           <Routes>
             <Route path="/" element={<WeekPage />} />
             <Route path="/meals" element={<MealsPage />} />
+            <Route path="/meals/:mealId/recipe" element={<RecipePage />} />
             <Route path="/settings" element={<SettingsPage />} />
           </Routes>
         </main>

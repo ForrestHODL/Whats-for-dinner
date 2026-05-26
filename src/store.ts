@@ -11,15 +11,30 @@ const STORAGE_KEY = "meal-prep-planner-v1";
 const SAVE_DEBOUNCE_MS = 600;
 
 export const DEFAULT_MEALS: Meal[] = [
-  { id: "1", title: "Grilled chicken & rice" },
-  { id: "2", title: "Taco bowls" },
-  { id: "3", title: "Salmon with veggies" },
-  { id: "4", title: "Pasta primavera" },
-  { id: "5", title: "Stir fry" },
-  { id: "6", title: "Soup & salad" },
-  { id: "7", title: "Breakfast burritos" },
-  { id: "8", title: "Sheet pan sausage" },
+  { id: "1", title: "Grilled chicken & rice", recipe: "" },
+  { id: "2", title: "Taco bowls", recipe: "" },
+  { id: "3", title: "Salmon with veggies", recipe: "" },
+  { id: "4", title: "Pasta primavera", recipe: "" },
+  { id: "5", title: "Stir fry", recipe: "" },
+  { id: "6", title: "Soup & salad", recipe: "" },
+  { id: "7", title: "Breakfast burritos", recipe: "" },
+  { id: "8", title: "Sheet pan sausage", recipe: "" },
 ];
+
+function normalizeMeal(meal: Meal): Meal {
+  return {
+    id: meal.id,
+    title: meal.title,
+    recipe: typeof meal.recipe === "string" ? meal.recipe : "",
+  };
+}
+
+export function normalizeState(state: AppState): AppState {
+  return {
+    meals: state.meals.map(normalizeMeal),
+    assignments: state.assignments,
+  };
+}
 
 export function defaultState(): AppState {
   return { meals: DEFAULT_MEALS, assignments: [] };
@@ -31,7 +46,7 @@ function loadLocalState(): AppState {
     if (raw) {
       const parsed = JSON.parse(raw) as AppState;
       if (parsed.meals?.length && Array.isArray(parsed.assignments)) {
-        return parsed;
+        return normalizeState(parsed);
       }
     }
   } catch {
@@ -92,7 +107,7 @@ export function useAppStore(userId: string | null) {
         if (row && isValidAppState(row.data)) {
           skipSaveRef.current = true;
           lastRemoteAt.current = new Date(row.updated_at).getTime();
-          setState(row.data);
+          setState(normalizeState(row.data));
         } else {
           await saveCloudPlan(userId, stateRef.current);
           if (!cancelled) setSyncStatus("synced");
@@ -166,7 +181,7 @@ export function useAppStore(userId: string | null) {
 
           lastRemoteAt.current = remoteAt;
           skipSaveRef.current = true;
-          setState(row.data);
+          setState(normalizeState(row.data));
           setSyncStatus("synced");
         }
       )
@@ -181,6 +196,7 @@ export function useAppStore(userId: string | null) {
     const meal: Meal = {
       id: crypto.randomUUID(),
       title: title.trim(),
+      recipe: "",
     };
     setState((s) => ({ ...s, meals: [...s.meals, meal] }));
     return meal;
@@ -219,6 +235,22 @@ export function useAppStore(userId: string | null) {
     [state]
   );
 
+  const getMealById = useCallback(
+    (mealId: string): Meal | undefined => {
+      return state.meals.find((m) => m.id === mealId);
+    },
+    [state]
+  );
+
+  const updateMealRecipe = useCallback((mealId: string, recipe: string) => {
+    setState((s) => ({
+      ...s,
+      meals: s.meals.map((m) =>
+        m.id === mealId ? { ...m, recipe } : m
+      ),
+    }));
+  }, []);
+
   const exportData = useCallback(() => JSON.stringify(state, null, 2), [state]);
 
   const importData = useCallback((json: string) => {
@@ -226,7 +258,7 @@ export function useAppStore(userId: string | null) {
     if (!parsed.meals || !parsed.assignments) {
       throw new Error("Invalid data");
     }
-    setState(parsed);
+    setState(normalizeState(parsed));
   }, []);
 
   return {
@@ -240,6 +272,8 @@ export function useAppStore(userId: string | null) {
     assignMealToDay,
     clearDay,
     getMealForDay,
+    getMealById,
+    updateMealRecipe,
     exportData,
     importData,
   };

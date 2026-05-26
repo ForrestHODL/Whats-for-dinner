@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { Link } from "react-router-dom";
 import { useStore } from "../StoreContext";
 import DayPickerModal from "../components/DayPickerModal";
 import type { Meal } from "../types";
@@ -28,7 +29,7 @@ export default function MealsPage() {
     <div className="page">
       <header className="page-header">
         <h1>Meals</h1>
-        <p className="page-lead">Tap a meal, then pick a day</p>
+        <p className="page-lead">Tap a meal to schedule it, or open its recipe</p>
       </header>
 
       {showAdded && (
@@ -53,14 +54,22 @@ export default function MealsPage() {
       <ul className="meals-list">
         {meals.map((meal) => (
           <li key={meal.id}>
-            <button
-              type="button"
-              className="meal-card"
-              onClick={() => setSelectedMeal(meal)}
-            >
-              <span className="meal-card-title">{meal.title}</span>
-              <span className="meal-card-action">Choose day →</span>
-            </button>
+            <div className="meal-card">
+              <button
+                type="button"
+                className="meal-card-main"
+                onClick={() => setSelectedMeal(meal)}
+              >
+                <span className="meal-card-title">{meal.title}</span>
+                <span className="meal-card-action">Choose day →</span>
+              </button>
+              <Link
+                to={`/meals/${meal.id}/recipe`}
+                className="btn-recipe"
+              >
+                Recipe
+              </Link>
+            </div>
             <button
               type="button"
               className="btn-delete"

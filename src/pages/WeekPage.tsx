@@ -1,3 +1,4 @@
+import { Link } from "react-router-dom";
 import { DAYS } from "../types";
 import { useStore } from "../StoreContext";
 
@@ -23,7 +24,20 @@ export default function WeekPage() {
               <div className="week-day-meal">
                 {meal ? (
                   <>
-                    <span className="meal-name">{meal.title}</span>
+                    <div className="week-meal-info">
+                      <Link
+                        to={`/meals/${meal.id}/recipe`}
+                        className="meal-name meal-name-link"
+                      >
+                        {meal.title}
+                      </Link>
+                      <Link
+                        to={`/meals/${meal.id}/recipe`}
+                        className="week-recipe-link"
+                      >
+                        Recipe
+                      </Link>
+                    </div>
                     <button
                       type="button"
                       className="btn-clear"

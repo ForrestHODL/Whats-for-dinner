@@ -1,5 +1,14 @@
-import { useCallback, useEffect, useRef, useState } from "react";
-import type { AppState, DayOfWeek, Meal } from "./types";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { DEFAULT_DAY_CALENDAR_SETTINGS } from "./lib/googleCalendar";
+import type {
+  AppState,
+  DayCalendarMap,
+  DayCalendarSettings,
+  DayOfWeek,
+  DayPrepReminder,
+  Meal,
+} from "./types";
+import { DAYS } from "./types";
 import {
   fetchCloudPlan,
   isCloudEnabled,
@@ -22,22 +31,93 @@ export const DEFAULT_MEALS: Meal[] = [
 ];
 
 function normalizeMeal(meal: Meal): Meal {
+  const count = meal.scheduleCount;
   return {
     id: meal.id,
     title: meal.title,
     recipe: typeof meal.recipe === "string" ? meal.recipe : "",
+    scheduleCount:
+      typeof count === "number" && count >= 0 ? Math.floor(count) : 0,
   };
+}
+
+export function sortMealsByPopularity(meals: Meal[]): Meal[] {
+  return [...meals].sort((a, b) => {
+    const diff = (b.scheduleCount ?? 0) - (a.scheduleCount ?? 0);
+    if (diff !== 0) return diff;
+    return a.title.localeCompare(b.title, undefined, { sensitivity: "base" });
+  });
+}
+
+function clampHour(h: number): number {
+  return Math.min(23, Math.max(0, Math.round(h)));
+}
+
+function clampMinute(m: number): number {
+  return Math.min(59, Math.max(0, Math.round(m)));
+}
+
+function normalizePrep(
+  raw: unknown,
+  fallback: DayPrepReminder
+): DayPrepReminder {
+  if (!raw || typeof raw !== "object") return { ...fallback };
+  const r = raw as Partial<DayPrepReminder>;
+  return {
+    enabled: Boolean(r.enabled),
+    hour: clampHour(r.hour ?? fallback.hour),
+    minute: clampMinute(r.minute ?? fallback.minute),
+  };
+}
+
+function normalizeDaySettings(raw: unknown): DayCalendarSettings {
+  const d = DEFAULT_DAY_CALENDAR_SETTINGS;
+  if (!raw || typeof raw !== "object") return { ...d, morningPrep: { ...d.morningPrep }, dayBeforePrep: { ...d.dayBeforePrep } };
+  const r = raw as Partial<DayCalendarSettings>;
+  return {
+    dinnerHour: clampHour(r.dinnerHour ?? d.dinnerHour),
+    dinnerMinute: clampMinute(r.dinnerMinute ?? d.dinnerMinute),
+    morningPrep: normalizePrep(r.morningPrep, d.morningPrep),
+    dayBeforePrep: normalizePrep(r.dayBeforePrep, d.dayBeforePrep),
+  };
+}
+
+export function defaultDayCalendarMap(): DayCalendarMap {
+  return Object.fromEntries(
+    DAYS.map((d) => [
+      d.key,
+      {
+        ...DEFAULT_DAY_CALENDAR_SETTINGS,
+        morningPrep: { ...DEFAULT_DAY_CALENDAR_SETTINGS.morningPrep },
+        dayBeforePrep: { ...DEFAULT_DAY_CALENDAR_SETTINGS.dayBeforePrep },
+      },
+    ])
+  ) as DayCalendarMap;
+}
+
+function normalizeDayCalendar(raw: DayCalendarMap | undefined): DayCalendarMap {
+  const base = defaultDayCalendarMap();
+  if (!raw) return base;
+  for (const d of DAYS) {
+    base[d.key] = normalizeDaySettings(raw[d.key]);
+  }
+  return base;
 }
 
 export function normalizeState(state: AppState): AppState {
   return {
     meals: state.meals.map(normalizeMeal),
     assignments: state.assignments,
+    dayCalendar: normalizeDayCalendar(state.dayCalendar),
   };
 }
 
 export function defaultState(): AppState {
-  return { meals: DEFAULT_MEALS, assignments: [] };
+  return {
+    meals: DEFAULT_MEALS,
+    assignments: [],
+    dayCalendar: defaultDayCalendarMap(),
+  };
 }
 
 function loadLocalState(): AppState {
@@ -212,12 +292,22 @@ export function useAppStore(userId: string | null) {
   const assignMealToDay = useCallback((mealId: string, day: DayOfWeek) => {
     setState((s) => ({
       ...s,
+      meals: s.meals.map((m) =>
+        m.id === mealId
+          ? { ...m, scheduleCount: (m.scheduleCount ?? 0) + 1 }
+          : m
+      ),
       assignments: [
         ...s.assignments.filter((a) => a.day !== day),
         { day, mealId },
       ],
     }));
   }, []);
+
+  const mealsByPopularity = useMemo(
+    () => sortMealsByPopularity(state.meals),
+    [state.meals]
+  );
 
   const clearDay = useCallback((day: DayOfWeek) => {
     setState((s) => ({
@@ -251,6 +341,29 @@ export function useAppStore(userId: string | null) {
     }));
   }, []);
 
+  const updateDayCalendar = useCallback(
+    (day: DayOfWeek, patch: Partial<DayCalendarSettings>) => {
+      setState((s) => {
+        const current = normalizeDayCalendar(s.dayCalendar)[day];
+        return {
+          ...s,
+          dayCalendar: {
+            ...normalizeDayCalendar(s.dayCalendar),
+            [day]: normalizeDaySettings({ ...current, ...patch }),
+          },
+        };
+      });
+    },
+    []
+  );
+
+  const getDayCalendar = useCallback(
+    (day: DayOfWeek): DayCalendarSettings => {
+      return normalizeDayCalendar(state.dayCalendar)[day];
+    },
+    [state.dayCalendar]
+  );
+
   const exportData = useCallback(() => JSON.stringify(state, null, 2), [state]);
 
   const importData = useCallback((json: string) => {
@@ -263,7 +376,9 @@ export function useAppStore(userId: string | null) {
 
   return {
     meals: state.meals,
+    mealsByPopularity,
     assignments: state.assignments,
+    dayCalendar: normalizeDayCalendar(state.dayCalendar),
     syncStatus,
     syncError,
     isCloudEnabled,
@@ -274,6 +389,8 @@ export function useAppStore(userId: string | null) {
     getMealForDay,
     getMealById,
     updateMealRecipe,
+    updateDayCalendar,
+    getDayCalendar,
     exportData,
     importData,
   };

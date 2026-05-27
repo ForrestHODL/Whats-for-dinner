@@ -2,13 +2,22 @@ import { useState } from "react";
 import { Link } from "react-router-dom";
 import { useStore } from "../StoreContext";
 import DayPickerModal from "../components/DayPickerModal";
-import type { Meal } from "../types";
+import CalendarLinks from "../components/CalendarLinks";
+import { buildMealCalendarLinks } from "../lib/googleCalendar";
+import type { CalendarEventLink } from "../lib/googleCalendar";
+import { DAYS, type DayOfWeek, type Meal } from "../types";
+
+type ScheduledToast = {
+  dayLabel: string;
+  links: CalendarEventLink[];
+};
 
 export default function MealsPage() {
-  const { meals, addMeal, assignMealToDay } = useStore();
+  const { mealsByPopularity, addMeal, assignMealToDay, getDayCalendar } =
+    useStore();
   const [selectedMeal, setSelectedMeal] = useState<Meal | null>(null);
   const [newTitle, setNewTitle] = useState("");
-  const [showAdded, setShowAdded] = useState<string | null>(null);
+  const [scheduled, setScheduled] = useState<ScheduledToast | null>(null);
 
   const handleAdd = (e: React.FormEvent) => {
     e.preventDefault();
@@ -17,24 +26,36 @@ export default function MealsPage() {
     setNewTitle("");
   };
 
-  const handleDaySelect = (day: Parameters<typeof assignMealToDay>[1]) => {
+  const handleDaySelect = (day: DayOfWeek) => {
     if (!selectedMeal) return;
     assignMealToDay(selectedMeal.id, day);
-    setShowAdded(`${selectedMeal.title} → ${day}`);
+    const dayLabel = DAYS.find((d) => d.key === day)?.label ?? day;
+    const details = `Planned in What's for Dinner\n${window.location.origin}/meals/${selectedMeal.id}/recipe`;
+    const links = buildMealCalendarLinks({
+      mealTitle: selectedMeal.title,
+      day,
+      settings: getDayCalendar(day),
+      details,
+    });
+    setScheduled({ dayLabel, links });
     setSelectedMeal(null);
-    setTimeout(() => setShowAdded(null), 2500);
+    setTimeout(() => setScheduled(null), 10000);
   };
 
   return (
     <div className="page">
       <header className="page-header">
         <h1>Meals</h1>
-        <p className="page-lead">Tap a meal to schedule it, or open its recipe</p>
+        <p className="page-lead">
+          Most-scheduled meals first — tap to plan, or open a recipe
+        </p>
       </header>
 
-      {showAdded && (
-        <div className="toast" role="status">
-          Added to calendar!
+      {scheduled && (
+        <div className="toast toast-scheduled" role="status">
+          <p>Scheduled for {scheduled.dayLabel}!</p>
+          <p className="toast-sub">Tap each to add to Google Calendar:</p>
+          <CalendarLinks links={scheduled.links} />
         </div>
       )}
 
@@ -52,7 +73,7 @@ export default function MealsPage() {
       </form>
 
       <ul className="meals-list">
-        {meals.map((meal) => (
+        {mealsByPopularity.map((meal) => (
           <li key={meal.id}>
             <div className="meal-card">
               <button

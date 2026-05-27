@@ -1,4 +1,5 @@
 import { useState } from "react";
+import DayCalendarSettingsSection from "../components/DayCalendarSettings";
 import { useAuth } from "../AuthContext";
 import { useStore } from "../StoreContext";
 
@@ -228,6 +229,8 @@ export default function SettingsPage() {
           )}
         </section>
       )}
+
+      <DayCalendarSettingsSection />
 
       <section className="settings-section install-hint">
         <h2>Install on your phone</h2>

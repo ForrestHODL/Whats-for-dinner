@@ -1,9 +1,11 @@
 import { Link } from "react-router-dom";
+import CalendarLinks from "../components/CalendarLinks";
+import { buildMealCalendarLinks } from "../lib/googleCalendar";
 import { DAYS } from "../types";
 import { useStore } from "../StoreContext";
 
 export default function WeekPage() {
-  const { getMealForDay, clearDay } = useStore();
+  const { getMealForDay, clearDay, getDayCalendar } = useStore();
 
   return (
     <div className="page">
@@ -37,6 +39,15 @@ export default function WeekPage() {
                       >
                         Recipe
                       </Link>
+                      <CalendarLinks
+                        links={buildMealCalendarLinks({
+                          mealTitle: meal.title,
+                          day: d.key,
+                          settings: getDayCalendar(d.key),
+                          details: `${window.location.origin}/meals/${meal.id}/recipe`,
+                        })}
+                        linkClassName="week-gcal-link"
+                      />
                     </div>
                     <button
                       type="button"

@@ -1,4 +1,4 @@
-import type { DayCalendarSettings, DayOfWeek } from "../types";
+import type { DayCalendarSettings, DayOfWeek, MealSlot } from "../types";
 
 const DAY_INDEX: Record<DayOfWeek, number> = {
   sunday: 0,
@@ -10,8 +10,11 @@ const DAY_INDEX: Record<DayOfWeek, number> = {
   saturday: 6,
 };
 
-const DINNER_DURATION_MINUTES = 60;
+const MEAL_DURATION_MINUTES = 60;
 const PREP_DURATION_MINUTES = 30;
+
+export const LUNCH_HOUR = 12;
+export const LUNCH_MINUTE = 0;
 
 export const DEFAULT_DAY_CALENDAR_SETTINGS: DayCalendarSettings = {
   dinnerHour: 17,
@@ -111,9 +114,11 @@ export function buildMealCalendarLinks(options: {
   mealTitle: string;
   day: DayOfWeek;
   settings: DayCalendarSettings;
+  mealSlot?: MealSlot;
   details?: string;
 }): CalendarEventLink[] {
   const { mealTitle, day, settings, details } = options;
+  const mealSlot = options.mealSlot ?? "dinner";
   const links: CalendarEventLink[] = [];
 
   if (settings.dayBeforePrep.enabled) {
@@ -150,17 +155,19 @@ export function buildMealCalendarLinks(options: {
     });
   }
 
-  const dinnerStart = getNextOccurrence(
-    day,
-    settings.dinnerHour,
-    settings.dinnerMinute
-  );
+  const mealHour =
+    mealSlot === "lunch" ? LUNCH_HOUR : settings.dinnerHour;
+  const mealMinute =
+    mealSlot === "lunch" ? LUNCH_MINUTE : settings.dinnerMinute;
+  const mealLabel = mealSlot === "lunch" ? "Lunch" : "Dinner";
+  const mealStart = getNextOccurrence(day, mealHour, mealMinute);
+
   links.push({
-    label: `Dinner · ${formatTimeLabel(settings.dinnerHour, settings.dinnerMinute)}`,
+    label: `${mealLabel} · ${formatTimeLabel(mealHour, mealMinute)}`,
     url: buildEventUrl(
-      `Dinner: ${mealTitle}`,
-      dinnerStart,
-      DINNER_DURATION_MINUTES,
+      `${mealLabel}: ${mealTitle}`,
+      mealStart,
+      MEAL_DURATION_MINUTES,
       details
     ),
   });

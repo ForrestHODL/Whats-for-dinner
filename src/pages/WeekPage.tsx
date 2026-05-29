@@ -1,11 +1,18 @@
 import { Link } from "react-router-dom";
 import CalendarLinks from "../components/CalendarLinks";
+import { MAIN_CATEGORY_ID, themeClassName } from "../lib/mealCategories";
 import { buildMealCalendarLinks } from "../lib/googleCalendar";
 import { DAYS } from "../types";
 import { useStore } from "../StoreContext";
 
 export default function WeekPage() {
-  const { getMealForDay, clearDay, getDayCalendar } = useStore();
+  const {
+    getMealsForDay,
+    removeMealFromDay,
+    clearDay,
+    getDayCalendar,
+    getCategoryForMeal,
+  } = useStore();
 
   return (
     <div className="page">
@@ -16,50 +23,92 @@ export default function WeekPage() {
 
       <ul className="week-list">
         {DAYS.map((d) => {
-          const meal = getMealForDay(d.key);
+          const meals = getMealsForDay(d.key);
           return (
-            <li key={d.key} className={`week-day ${meal ? "has-meal" : ""}`}>
+            <li
+              key={d.key}
+              className={`week-day ${meals.length > 0 ? "has-meal" : ""}`}
+            >
               <div className="week-day-label">
                 <span className="week-day-short">{d.short}</span>
                 <span className="week-day-full">{d.label}</span>
               </div>
               <div className="week-day-meal">
-                {meal ? (
-                  <>
-                    <div className="week-meal-info">
-                      <Link
-                        to={`/meals/${meal.id}/recipe`}
-                        className="meal-name meal-name-link"
-                      >
-                        {meal.title}
-                      </Link>
-                      <Link
-                        to={`/meals/${meal.id}/recipe`}
-                        className="week-recipe-link"
-                      >
-                        Recipe
-                      </Link>
-                      <CalendarLinks
-                        links={buildMealCalendarLinks({
-                          mealTitle: meal.title,
-                          day: d.key,
-                          settings: getDayCalendar(d.key),
-                          details: `${window.location.origin}/meals/${meal.id}/recipe`,
-                        })}
-                        linkClassName="week-gcal-link"
-                      />
-                    </div>
-                    <button
-                      type="button"
-                      className="btn-clear"
-                      onClick={() => clearDay(d.key)}
-                      aria-label={`Clear ${d.label}`}
-                    >
-                      ×
-                    </button>
-                  </>
+                {meals.length > 0 ? (
+                  <ul className="week-day-meals">
+                    {meals.map((meal) => {
+                      const category = getCategoryForMeal(meal.id);
+                      const themeClass = category
+                        ? themeClassName(category.theme)
+                        : "";
+                      const calTitle =
+                        category?.needsWho && meal.note
+                          ? `${meal.note}: ${meal.title}`
+                          : category && category.id !== MAIN_CATEGORY_ID
+                            ? `${category.label}: ${meal.title}`
+                            : meal.title;
+
+                      return (
+                        <li
+                          key={meal.id}
+                          className={`week-day-meal-item ${themeClass}`.trim()}
+                        >
+                          <div className="week-meal-info">
+                            {category && category.id !== MAIN_CATEGORY_ID && (
+                              <span className={`week-meal-cat ${themeClassName(category.theme)}`}>
+                                {category.needsWho && meal.note
+                                  ? meal.note
+                                  : category.label}
+                              </span>
+                            )}
+                            <div className="week-meal-title-row">
+                              <Link
+                                to={`/meals/${meal.id}/recipe`}
+                                className="meal-name meal-name-link"
+                              >
+                                {meal.title}
+                              </Link>
+                            </div>
+                            <Link
+                              to={`/meals/${meal.id}/recipe`}
+                              className="week-recipe-link"
+                            >
+                              Recipe
+                            </Link>
+                            <CalendarLinks
+                              links={buildMealCalendarLinks({
+                                mealTitle: calTitle,
+                                day: d.key,
+                                settings: getDayCalendar(d.key),
+                                mealSlot: category?.mealSlot ?? "dinner",
+                                details: `${window.location.origin}/meals/${meal.id}/recipe`,
+                              })}
+                              linkClassName="week-gcal-link"
+                            />
+                          </div>
+                          <button
+                            type="button"
+                            className="btn-clear"
+                            onClick={() => removeMealFromDay(meal.id, d.key)}
+                            aria-label={`Remove ${meal.title} from ${d.label}`}
+                          >
+                            ×
+                          </button>
+                        </li>
+                      );
+                    })}
+                  </ul>
                 ) : (
-                  <span className="empty-slot">No meal yet</span>
+                  <span className="empty-slot">No meals yet</span>
+                )}
+                {meals.length > 1 && (
+                  <button
+                    type="button"
+                    className="btn-clear-day"
+                    onClick={() => clearDay(d.key)}
+                  >
+                    Clear all
+                  </button>
                 )}
               </div>
             </li>
@@ -68,7 +117,8 @@ export default function WeekPage() {
       </ul>
 
       <p className="hint">
-        Tap a meal on the <strong>Meals</strong> tab to assign it to a day.
+        Tap meals on the <strong>Meals</strong> tab to add them to a day — you
+        can schedule more than one per day.
       </p>
     </div>
   );

@@ -7,12 +7,44 @@ export type DayOfWeek =
   | "saturday"
   | "sunday";
 
+/** @deprecated Migrated to categoryId */
+export type MealList = "main" | "alternate";
+
+export type MealSlot = "lunch" | "dinner";
+
+export type MealCategoryTheme =
+  | "default"
+  | "blue"
+  | "warm"
+  | "violet"
+  | "rose"
+  | "teal"
+  | "lime"
+  | "plum"
+  | "coral";
+
+export interface MealCategory {
+  id: string;
+  label: string;
+  theme: MealCategoryTheme;
+  /** Show "who is this for?" when adding meals */
+  needsWho: boolean;
+  /** Lunch events use 12pm; dinner uses per-day times in settings */
+  mealSlot: MealSlot;
+}
+
 export interface Meal {
   id: string;
   title: string;
   recipe: string;
   /** Times this meal was scheduled to a day (drives list order). */
   scheduleCount?: number;
+  /** Which tab/category this meal belongs to */
+  categoryId?: string;
+  /** @deprecated Use categoryId */
+  list?: MealList;
+  /** Who it's for (categories with needsWho) */
+  note?: string;
 }
 
 export interface DayAssignment {
@@ -30,9 +62,7 @@ export interface DayPrepReminder {
 export interface DayCalendarSettings {
   dinnerHour: number;
   dinnerMinute: number;
-  /** Morning of — e.g. start slow cooker */
   morningPrep: DayPrepReminder;
-  /** Previous day — e.g. move from freezer to fridge */
   dayBeforePrep: DayPrepReminder;
 }
 
@@ -42,6 +72,9 @@ export interface AppState {
   meals: Meal[];
   assignments: DayAssignment[];
   dayCalendar?: DayCalendarMap;
+  mealCategories?: MealCategory[];
+  /** @deprecated Migrated into mealCategories */
+  alternateTabLabel?: string;
 }
 
 export const DAYS: { key: DayOfWeek; label: string; short: string }[] = [

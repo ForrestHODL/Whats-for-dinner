@@ -1,4 +1,12 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+  defaultMealCategories,
+  getCategoryById,
+  MAIN_CATEGORY_ID,
+  normalizeMealCategories,
+  resolveMealCategoryId,
+  themeForNewCategory,
+} from "./lib/mealCategories";
 import { DEFAULT_DAY_CALENDAR_SETTINGS } from "./lib/googleCalendar";
 import type {
   AppState,
@@ -7,6 +15,8 @@ import type {
   DayOfWeek,
   DayPrepReminder,
   Meal,
+  MealCategory,
+  MealSlot,
 } from "./types";
 import { DAYS } from "./types";
 import {
@@ -30,7 +40,7 @@ export const DEFAULT_MEALS: Meal[] = [
   { id: "8", title: "Sheet pan sausage", recipe: "" },
 ];
 
-function normalizeMeal(meal: Meal): Meal {
+function normalizeMeal(meal: Meal, categories: MealCategory[]): Meal {
   const count = meal.scheduleCount;
   return {
     id: meal.id,
@@ -38,6 +48,8 @@ function normalizeMeal(meal: Meal): Meal {
     recipe: typeof meal.recipe === "string" ? meal.recipe : "",
     scheduleCount:
       typeof count === "number" && count >= 0 ? Math.floor(count) : 0,
+    categoryId: resolveMealCategoryId(meal, categories),
+    note: typeof meal.note === "string" ? meal.note : "",
   };
 }
 
@@ -105,18 +117,24 @@ function normalizeDayCalendar(raw: DayCalendarMap | undefined): DayCalendarMap {
 }
 
 export function normalizeState(state: AppState): AppState {
+  const mealCategories = normalizeMealCategories(
+    state.mealCategories,
+    state.alternateTabLabel
+  );
   return {
-    meals: state.meals.map(normalizeMeal),
+    meals: state.meals.map((m) => normalizeMeal(m, mealCategories)),
     assignments: state.assignments,
     dayCalendar: normalizeDayCalendar(state.dayCalendar),
+    mealCategories,
   };
 }
 
 export function defaultState(): AppState {
   return {
-    meals: DEFAULT_MEALS,
+    meals: DEFAULT_MEALS.map((m) => ({ ...m, categoryId: MAIN_CATEGORY_ID })),
     assignments: [],
     dayCalendar: defaultDayCalendarMap(),
+    mealCategories: defaultMealCategories(),
   };
 }
 
@@ -272,14 +290,106 @@ export function useAppStore(userId: string | null) {
     };
   }, [userId]);
 
-  const addMeal = useCallback((title: string) => {
-    const meal: Meal = {
-      id: crypto.randomUUID(),
-      title: title.trim(),
-      recipe: "",
-    };
-    setState((s) => ({ ...s, meals: [...s.meals, meal] }));
-    return meal;
+  const addMeal = useCallback(
+    (
+      title: string,
+      options?: { categoryId?: string; note?: string }
+    ) => {
+      setState((s) => {
+        const categories = normalizeMealCategories(s.mealCategories);
+        const categoryId =
+          options?.categoryId && categories.some((c) => c.id === options.categoryId)
+            ? options.categoryId
+            : MAIN_CATEGORY_ID;
+        const meal: Meal = {
+          id: crypto.randomUUID(),
+          title: title.trim(),
+          recipe: "",
+          categoryId,
+          note: options?.note?.trim() ?? "",
+        };
+        return { ...s, meals: [...s.meals, normalizeMeal(meal, categories)] };
+      });
+    },
+    []
+  );
+
+  const addMealCategory = useCallback(
+    (label: string, mealSlot: MealSlot = "dinner") => {
+    const trimmed = label.trim();
+    if (!trimmed) return null;
+    let newId: string | null = null;
+    setState((s) => {
+      const categories = normalizeMealCategories(s.mealCategories);
+      const id = crypto.randomUUID();
+      newId = id;
+      const category: MealCategory = {
+        id,
+        label: trimmed,
+        theme: themeForNewCategory(categories),
+        needsWho: false,
+        mealSlot: mealSlot === "lunch" ? "lunch" : "dinner",
+      };
+      return {
+        ...s,
+        mealCategories: [...categories, category],
+      };
+    });
+    return newId;
+  },
+  []);
+
+  const updateMealCategory = useCallback(
+    (
+      categoryId: string,
+      patch: Partial<Pick<MealCategory, "label" | "mealSlot">>
+    ) => {
+      setState((s) => {
+        const categories = normalizeMealCategories(s.mealCategories);
+        return {
+          ...s,
+          mealCategories: categories.map((c) =>
+            c.id === categoryId
+              ? {
+                  ...c,
+                  label:
+                    typeof patch.label === "string" && patch.label.trim()
+                      ? patch.label.trim()
+                      : c.label,
+                  mealSlot:
+                    patch.mealSlot === "lunch" || patch.mealSlot === "dinner"
+                      ? patch.mealSlot
+                      : c.mealSlot,
+                }
+              : c
+          ),
+        };
+      });
+    },
+    []
+  );
+
+  const removeMealCategory = useCallback((categoryId: string) => {
+    if (categoryId === MAIN_CATEGORY_ID) return;
+    setState((s) => {
+      const categories = normalizeMealCategories(s.mealCategories);
+      if (!categories.some((c) => c.id === categoryId)) return s;
+      const nextCategories = categories.filter((c) => c.id !== categoryId);
+      return {
+        ...s,
+        mealCategories: nextCategories,
+        meals: s.meals.map((m) => {
+          const currentCat = resolveMealCategoryId(m, categories);
+          if (currentCat !== categoryId) {
+            return normalizeMeal(m, nextCategories);
+          }
+          return normalizeMeal(
+            { ...m, categoryId: MAIN_CATEGORY_ID },
+            nextCategories
+          );
+        }),
+      };
+    });
   }, []);
 
   const removeMeal = useCallback((mealId: string) => {
@@ -290,23 +400,53 @@ export function useAppStore(userId: string | null) {
   }, []);
 
   const assignMealToDay = useCallback((mealId: string, day: DayOfWeek) => {
+    setState((s) => {
+      const alreadyOnDay = s.assignments.some(
+        (a) => a.day === day && a.mealId === mealId
+      );
+      if (alreadyOnDay) return s;
+      return {
+        ...s,
+        meals: s.meals.map((m) =>
+          m.id === mealId
+            ? { ...m, scheduleCount: (m.scheduleCount ?? 0) + 1 }
+            : m
+        ),
+        assignments: [...s.assignments, { day, mealId }],
+      };
+    });
+  }, []);
+
+  const removeMealFromDay = useCallback((mealId: string, day: DayOfWeek) => {
     setState((s) => ({
       ...s,
-      meals: s.meals.map((m) =>
-        m.id === mealId
-          ? { ...m, scheduleCount: (m.scheduleCount ?? 0) + 1 }
-          : m
+      assignments: s.assignments.filter(
+        (a) => !(a.day === day && a.mealId === mealId)
       ),
-      assignments: [
-        ...s.assignments.filter((a) => a.day !== day),
-        { day, mealId },
-      ],
     }));
   }, []);
 
-  const mealsByPopularity = useMemo(
-    () => sortMealsByPopularity(state.meals),
+  const mealCategories = useMemo(
+    () => normalizeMealCategories(state.mealCategories),
+    [state.mealCategories]
+  );
+
+  const getMealsForCategory = useCallback(
+    (categoryId: string) => {
+      return sortMealsByPopularity(
+        state.meals.filter((m) => m.categoryId === categoryId)
+      );
+    },
     [state.meals]
+  );
+
+  const getCategoryForMeal = useCallback(
+    (mealId: string): MealCategory | undefined => {
+      const meal = state.meals.find((m) => m.id === mealId);
+      if (!meal?.categoryId) return undefined;
+      return getCategoryById(mealCategories, meal.categoryId);
+    },
+    [state.meals, mealCategories]
   );
 
   const clearDay = useCallback((day: DayOfWeek) => {
@@ -316,11 +456,13 @@ export function useAppStore(userId: string | null) {
     }));
   }, []);
 
-  const getMealForDay = useCallback(
-    (day: DayOfWeek): Meal | undefined => {
-      const assignment = state.assignments.find((a) => a.day === day);
-      if (!assignment) return undefined;
-      return state.meals.find((m) => m.id === assignment.mealId);
+  const getMealsForDay = useCallback(
+    (day: DayOfWeek): Meal[] => {
+      const mealById = new Map(state.meals.map((m) => [m.id, m]));
+      return state.assignments
+        .filter((a) => a.day === day)
+        .map((a) => mealById.get(a.mealId))
+        .filter((m): m is Meal => m !== undefined);
     },
     [state]
   );
@@ -337,6 +479,15 @@ export function useAppStore(userId: string | null) {
       ...s,
       meals: s.meals.map((m) =>
         m.id === mealId ? { ...m, recipe } : m
+      ),
+    }));
+  }, []);
+
+  const updateMealNote = useCallback((mealId: string, note: string) => {
+    setState((s) => ({
+      ...s,
+      meals: s.meals.map((m) =>
+        m.id === mealId ? { ...m, note: note.trim() } : m
       ),
     }));
   }, []);
@@ -376,19 +527,26 @@ export function useAppStore(userId: string | null) {
 
   return {
     meals: state.meals,
-    mealsByPopularity,
+    mealCategories,
+    getMealsForCategory,
+    getCategoryForMeal,
     assignments: state.assignments,
     dayCalendar: normalizeDayCalendar(state.dayCalendar),
     syncStatus,
     syncError,
     isCloudEnabled,
     addMeal,
+    addMealCategory,
+    updateMealCategory,
+    removeMealCategory,
     removeMeal,
     assignMealToDay,
+    removeMealFromDay,
     clearDay,
-    getMealForDay,
+    getMealsForDay,
     getMealById,
     updateMealRecipe,
+    updateMealNote,
     updateDayCalendar,
     getDayCalendar,
     exportData,

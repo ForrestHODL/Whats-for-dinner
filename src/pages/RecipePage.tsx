@@ -1,31 +1,50 @@
 import { useEffect, useState } from "react";
 import { Link, Navigate, useNavigate, useParams } from "react-router-dom";
+import { MAIN_CATEGORY_ID, themeClassName } from "../lib/mealCategories";
 import { useStore } from "../StoreContext";
 
 export default function RecipePage() {
   const navigate = useNavigate();
   const { mealId } = useParams<{ mealId: string }>();
-  const { getMealById, updateMealRecipe, removeMeal } = useStore();
+  const {
+    getMealById,
+    getCategoryForMeal,
+    updateMealRecipe,
+    updateMealNote,
+    removeMeal,
+  } = useStore();
   const meal = mealId ? getMealById(mealId) : undefined;
+  const category = mealId ? getCategoryForMeal(mealId) : undefined;
 
   const [draft, setDraft] = useState("");
+  const [noteDraft, setNoteDraft] = useState("");
   const [saved, setSaved] = useState(false);
 
   useEffect(() => {
-    if (meal) setDraft(meal.recipe);
+    if (meal) {
+      setDraft(meal.recipe);
+      setNoteDraft(meal.note ?? "");
+    }
   }, [meal]);
 
   if (!mealId || !meal) {
     return <Navigate to="/meals" replace />;
   }
 
+  const themeClass = category ? themeClassName(category.theme) : "";
+  const needsWho = category?.needsWho ?? false;
+
   const handleSave = () => {
     updateMealRecipe(meal.id, draft);
+    if (needsWho) {
+      updateMealNote(meal.id, noteDraft);
+    }
     setSaved(true);
     setTimeout(() => setSaved(false), 2000);
   };
 
-  const hasChanges = draft !== meal.recipe;
+  const hasChanges =
+    draft !== meal.recipe || (needsWho && noteDraft !== (meal.note ?? ""));
 
   const handleDelete = () => {
     const confirmed = window.confirm(
@@ -37,15 +56,36 @@ export default function RecipePage() {
   };
 
   return (
-    <div className="page recipe-page">
+    <div className={`page recipe-page ${themeClass}`.trim()}>
       <Link to="/meals" className="back-link">
         ← Meals
       </Link>
 
       <header className="page-header">
         <h1>{meal.title}</h1>
-        <p className="page-lead">Recipe</p>
+        <p className="page-lead">
+          {category && category.id !== MAIN_CATEGORY_ID
+            ? needsWho && meal.note
+              ? `${category.label} · For ${meal.note}`
+              : category.label
+            : "Recipe"}
+        </p>
       </header>
+
+      {needsWho && (
+        <section
+          className={`recipe-note-field ${themeClass}`.trim()}
+        >
+          <label htmlFor="meal-note">Who is this for?</label>
+          <input
+            id="meal-note"
+            type="text"
+            value={noteDraft}
+            onChange={(e) => setNoteDraft(e.target.value)}
+            placeholder="e.g. Mom, Jake, gluten-free"
+          />
+        </section>
+      )}
 
       {saved && (
         <div className="toast" role="status">
@@ -65,7 +105,7 @@ export default function RecipePage() {
         />
         <button
           type="button"
-          className="btn-primary btn-full"
+          className={`btn-primary btn-full ${themeClass}`.trim()}
           onClick={handleSave}
           disabled={!hasChanges}
         >

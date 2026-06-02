@@ -100,7 +100,6 @@ export default function RecipePage() {
           className="recipe-textarea"
           value={draft}
           onChange={(e) => setDraft(e.target.value)}
-          placeholder={`Example:\n\nIngredients:\n- 2 chicken breasts\n- 1 cup rice\n\nSteps:\n1. Season and grill chicken\n2. Cook rice\n3. Serve together`}
           rows={14}
         />
         <button

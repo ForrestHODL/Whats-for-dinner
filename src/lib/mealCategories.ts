@@ -88,10 +88,7 @@ function normalizeCategory(
 
   return {
     id: raw.id,
-    label:
-      typeof raw.label === "string" && raw.label.trim()
-        ? raw.label.trim()
-        : "Meals",
+    label: typeof raw.label === "string" ? raw.label : "Meals",
     theme,
     needsWho:
       raw.id === ALTERNATE_CATEGORY_ID ? false : Boolean(raw.needsWho),

@@ -1,10 +1,15 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
+import QuickShopButton, {
+  type QuickShopResult,
+} from "../components/QuickShopButton";
+import { getMealRecipeBody } from "../lib/mealRecipeBody";
 import { useStore } from "../StoreContext";
 import DayPickerModal from "../components/DayPickerModal";
 import CalendarLinks from "../components/CalendarLinks";
 import MealSlotField from "../components/MealSlotField";
 import { MAIN_CATEGORY_ID, themeClassName } from "../lib/mealCategories";
+import { guestEmailsForCalendar } from "../lib/calendarGuests";
 import { buildMealCalendarLinks } from "../lib/googleCalendar";
 import type { CalendarEventLink } from "../lib/googleCalendar";
 import {
@@ -24,7 +29,7 @@ function mealCalendarTitle(meal: Meal, category?: MealCategory): string {
   if (category?.needsWho && meal.note) {
     return `${meal.note}: ${meal.title}`;
   }
-  if (category && category.id !== MAIN_CATEGORY_ID) {
+  if (category && category.id !== MAIN_CATEGORY_ID && category.label.trim()) {
     return `${category.label}: ${meal.title}`;
   }
   return meal.title;
@@ -40,11 +45,14 @@ export default function MealsPage() {
     removeMealCategory,
     assignMealToDay,
     getDayCalendar,
+    getRecipeById,
+    calendarGuests,
   } = useStore();
 
   const [activeCategoryId, setActiveCategoryId] = useState(MAIN_CATEGORY_ID);
   const [selectedMeal, setSelectedMeal] = useState<Meal | null>(null);
   const [scheduled, setScheduled] = useState<ScheduledToast | null>(null);
+  const [shopToast, setShopToast] = useState<QuickShopResult | null>(null);
 
   const [newTitle, setNewTitle] = useState("");
   const [newWho, setNewWho] = useState("");
@@ -67,9 +75,27 @@ export default function MealsPage() {
     ? getMealsForCategory(activeCategory.id)
     : [];
   const canDeleteCategory =
-    activeCategory &&
-    activeCategory.id !== MAIN_CATEGORY_ID &&
-    categoryMeals.length === 0;
+    activeCategory && activeCategory.id !== MAIN_CATEGORY_ID;
+
+  const handleDeleteCategory = (categoryId: string) => {
+    const category = mealCategories.find((c) => c.id === categoryId);
+    if (!category || category.id === MAIN_CATEGORY_ID) return;
+
+    const mealCount = getMealsForCategory(categoryId).length;
+    const tabName = category.label.trim() || "this tab";
+    const message =
+      mealCount > 0
+        ? `Delete "${tabName}"? ${mealCount} meal${
+            mealCount === 1 ? "" : "s"
+          } will move to Everyone.`
+        : `Delete "${tabName}" tab?`;
+    if (!window.confirm(message)) return;
+
+    removeMealCategory(categoryId);
+    if (activeCategoryId === categoryId) {
+      setActiveCategoryId(MAIN_CATEGORY_ID);
+    }
+  };
 
   const handleAddCategory = (e: React.FormEvent) => {
     e.preventDefault();
@@ -112,10 +138,16 @@ export default function MealsPage() {
       settings: getDayCalendar(day),
       mealSlot: category.mealSlot,
       details,
+      guests: guestEmailsForCalendar(calendarGuests),
     });
     setScheduled({ dayLabel, links });
     setSelectedMeal(null);
     setTimeout(() => setScheduled(null), 10000);
+  };
+
+  const handleShopResult = (result: QuickShopResult) => {
+    setShopToast(result);
+    setTimeout(() => setShopToast(null), 8000);
   };
 
   const renderMealList = (
@@ -141,12 +173,23 @@ export default function MealsPage() {
                 </span>
                 <span className="meal-card-action">Choose day →</span>
               </button>
-              <Link
-                to={`/meals/${meal.id}/recipe`}
-                className={`btn-recipe ${themed}`}
-              >
-                Recipe
-              </Link>
+              <div className="meal-card-actions">
+                <QuickShopButton
+                  sourceTitle={meal.title}
+                  body={getMealRecipeBody(
+                    meal,
+                    meal.recipeId ? getRecipeById(meal.recipeId) : undefined
+                  )}
+                  className={themed}
+                  onResult={handleShopResult}
+                />
+                <Link
+                  to={`/meals/${meal.id}/recipe`}
+                  className={`btn-recipe ${themed}`}
+                >
+                  Recipe
+                </Link>
+              </div>
             </div>
           </li>
         ))}
@@ -163,7 +206,9 @@ export default function MealsPage() {
         <p className="page-lead">
           {activeCategory.id === MAIN_CATEGORY_ID
             ? "Most-scheduled meals first — tap to add to a day"
-            : `Meals in ${activeCategory.label}`}
+            : activeCategory.label.trim()
+              ? `Meals in ${activeCategory.label}`
+              : "Meals in this tab"}
         </p>
       </header>
 
@@ -187,7 +232,7 @@ export default function MealsPage() {
                 setShowAddCategory(false);
               }}
             >
-              {cat.label}
+              {cat.label || "…"}
             </button>
           ))}
           <button
@@ -245,6 +290,22 @@ export default function MealsPage() {
             </button>
           </div>
         </form>
+      )}
+
+      {shopToast && (
+        <div className="toast" role="status">
+          {shopToast.ok ? (
+            <>
+              Added {shopToast.count} item{shopToast.count === 1 ? "" : "s"} from{" "}
+              {shopToast.sourceTitle}!{" "}
+              <Link to="/shopping" className="toast-inline-link">
+                Open shopping list →
+              </Link>
+            </>
+          ) : (
+            shopToast.message
+          )}
+        </div>
       )}
 
       {scheduled && (
@@ -324,10 +385,7 @@ export default function MealsPage() {
           <button
             type="button"
             className="btn-ghost category-delete-btn"
-            onClick={() => {
-              removeMealCategory(activeCategory.id);
-              setActiveCategoryId(MAIN_CATEGORY_ID);
-            }}
+            onClick={() => handleDeleteCategory(activeCategory.id)}
           >
             Delete this tab
           </button>

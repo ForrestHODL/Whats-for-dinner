@@ -1,7 +1,13 @@
+import { useState } from "react";
 import { Link } from "react-router-dom";
 import CalendarLinks from "../components/CalendarLinks";
+import QuickShopButton, {
+  type QuickShopResult,
+} from "../components/QuickShopButton";
 import { MAIN_CATEGORY_ID, themeClassName } from "../lib/mealCategories";
+import { guestEmailsForCalendar } from "../lib/calendarGuests";
 import { buildMealCalendarLinks } from "../lib/googleCalendar";
+import { getMealRecipeBody } from "../lib/mealRecipeBody";
 import { DAYS } from "../types";
 import { useStore } from "../StoreContext";
 
@@ -12,7 +18,16 @@ export default function WeekPage() {
     clearDay,
     getDayCalendar,
     getCategoryForMeal,
+    getRecipeById,
+    calendarGuests,
   } = useStore();
+
+  const [shopToast, setShopToast] = useState<QuickShopResult | null>(null);
+
+  const handleShopResult = (result: QuickShopResult) => {
+    setShopToast(result);
+    setTimeout(() => setShopToast(null), 8000);
+  };
 
   return (
     <div className="page">
@@ -20,6 +35,22 @@ export default function WeekPage() {
         <h1>This Week</h1>
         <p className="page-lead">Your meal prep calendar</p>
       </header>
+
+      {shopToast && (
+        <div className="toast" role="status">
+          {shopToast.ok ? (
+            <>
+              Added {shopToast.count} item{shopToast.count === 1 ? "" : "s"} from{" "}
+              {shopToast.sourceTitle}!{" "}
+              <Link to="/shopping" className="toast-inline-link">
+                Open shopping list →
+              </Link>
+            </>
+          ) : (
+            shopToast.message
+          )}
+        </div>
+      )}
 
       <ul className="week-list">
         {DAYS.map((d) => {
@@ -69,12 +100,25 @@ export default function WeekPage() {
                                 {meal.title}
                               </Link>
                             </div>
-                            <Link
-                              to={`/meals/${meal.id}/recipe`}
-                              className="week-recipe-link"
-                            >
-                              Recipe
-                            </Link>
+                            <div className="week-meal-quick-actions">
+                              <QuickShopButton
+                                sourceTitle={meal.title}
+                                body={getMealRecipeBody(
+                                  meal,
+                                  meal.recipeId
+                                    ? getRecipeById(meal.recipeId)
+                                    : undefined
+                                )}
+                                className={themeClass}
+                                onResult={handleShopResult}
+                              />
+                              <Link
+                                to={`/meals/${meal.id}/recipe`}
+                                className={`btn-recipe ${themeClass}`.trim()}
+                              >
+                                Recipe
+                              </Link>
+                            </div>
                             <CalendarLinks
                               links={buildMealCalendarLinks({
                                 mealTitle: calTitle,
@@ -82,6 +126,7 @@ export default function WeekPage() {
                                 settings: getDayCalendar(d.key),
                                 mealSlot: category?.mealSlot ?? "dinner",
                                 details: `${window.location.origin}/meals/${meal.id}/recipe`,
+                                guests: guestEmailsForCalendar(calendarGuests),
                               })}
                               linkClassName="week-gcal-link"
                             />
@@ -117,8 +162,9 @@ export default function WeekPage() {
       </ul>
 
       <p className="hint">
-        Tap meals on the <strong>Meals</strong> tab to add them to a day — you
-        can schedule more than one per day.
+        Use <strong>Week</strong> on a recipe card, or tap a meal on{" "}
+        <strong>Meals</strong> to pick a day — you can schedule more than one per
+        day.
       </p>
     </div>
   );

@@ -1,4 +1,5 @@
 import { useState } from "react";
+import CalendarGuestsSection from "../components/CalendarGuestsSection";
 import DayCalendarSettingsSection from "../components/DayCalendarSettings";
 import { useAuth } from "../AuthContext";
 import { useStore } from "../StoreContext";
@@ -115,30 +116,6 @@ export default function SettingsPage() {
         </section>
       )}
 
-      {isConfigured && !user && (
-        <section className="settings-section setup-checklist">
-          <h2>First-time setup (Supabase)</h2>
-          <p>If sign-in fails, check these in your Supabase dashboard:</p>
-          <ol>
-            <li>
-              <strong>Authentication → URL configuration</strong>
-              <br />
-              Site URL: <code>{window.location.origin}</code>
-              <br />
-              Redirect URLs: add <code>{window.location.origin}</code>
-            </li>
-            <li>
-              <strong>Authentication → Providers → Email</strong> — turn off
-              &quot;Confirm email&quot; for instant sign-in (optional but easiest).
-            </li>
-            <li>
-              Use <strong>Create account</strong> on this site first, then sign
-              in on the other phone with the same email/password.
-            </li>
-          </ol>
-        </section>
-      )}
-
       {isConfigured && (
         <section className="settings-section">
           {user ? (
@@ -230,17 +207,9 @@ export default function SettingsPage() {
         </section>
       )}
 
-      <DayCalendarSettingsSection />
+      <CalendarGuestsSection />
 
-      <section className="settings-section install-hint">
-        <h2>Install on your phone</h2>
-        <p>
-          <strong>iPhone:</strong> Safari → Share → Add to Home Screen
-        </p>
-        <p>
-          <strong>Android:</strong> Chrome → Install app / Add to Home Screen
-        </p>
-      </section>
+      <DayCalendarSettingsSection />
 
       <button
         type="button"

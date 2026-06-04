@@ -72,7 +72,8 @@ function buildEventUrl(
   title: string,
   start: Date,
   durationMinutes: number,
-  details?: string
+  details?: string,
+  guests?: string[]
 ): string {
   const end = new Date(start);
   end.setMinutes(end.getMinutes() + durationMinutes);
@@ -83,8 +84,48 @@ function buildEventUrl(
     dates: `${formatGCalDateTime(start)}/${formatGCalDateTime(end)}`,
   });
   if (details) params.set("details", details);
+  const guestList = guests?.map((e) => e.trim()).filter(Boolean) ?? [];
+  if (guestList.length > 0) {
+    params.set("add", guestList.join(","));
+  }
 
   return `https://calendar.google.com/calendar/render?${params.toString()}`;
+}
+
+export function buildShoppingCalendarUrl(options: {
+  title?: string;
+  start: Date;
+  durationMinutes?: number;
+  items: string[];
+  /** If set, used as event description instead of a flat bullet list */
+  details?: string;
+  /** Guest emails added to the Google Calendar event */
+  guests?: string[];
+}): string {
+  const details =
+    options.details?.trim() ||
+    options.items.map((item) => `- ${item}`).join("\n");
+  return buildEventUrl(
+    options.title ?? "Grocery shopping",
+    options.start,
+    options.durationMinutes ?? 60,
+    details || undefined,
+    options.guests
+  );
+}
+
+export function combineDateAndTime(dateValue: string, timeValue: string): Date {
+  const [year, month, day] = dateValue.split("-").map(Number);
+  const { hour, minute } = parseTimeInput(timeValue);
+  const result = new Date();
+  result.setFullYear(year, month - 1, day);
+  result.setHours(hour, minute, 0, 0);
+  return result;
+}
+
+export function defaultShoppingDateValue(): string {
+  const d = new Date();
+  return `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`;
 }
 
 export function formatTimeLabel(hour: number, minute: number): string {
@@ -116,8 +157,10 @@ export function buildMealCalendarLinks(options: {
   settings: DayCalendarSettings;
   mealSlot?: MealSlot;
   details?: string;
+  /** Guest emails added to each Google Calendar event */
+  guests?: string[];
 }): CalendarEventLink[] {
-  const { mealTitle, day, settings, details } = options;
+  const { mealTitle, day, settings, details, guests } = options;
   const mealSlot = options.mealSlot ?? "dinner";
   const links: CalendarEventLink[] = [];
 
@@ -133,7 +176,8 @@ export function buildMealCalendarLinks(options: {
         `Prep (freezer): ${mealTitle}`,
         start,
         PREP_DURATION_MINUTES,
-        details
+        details,
+        guests
       ),
     });
   }
@@ -150,7 +194,8 @@ export function buildMealCalendarLinks(options: {
         `Prep (slow cook): ${mealTitle}`,
         start,
         PREP_DURATION_MINUTES,
-        details
+        details,
+        guests
       ),
     });
   }
@@ -168,7 +213,8 @@ export function buildMealCalendarLinks(options: {
       `${mealLabel}: ${mealTitle}`,
       mealStart,
       MEAL_DURATION_MINUTES,
-      details
+      details,
+      guests
     ),
   });
 
